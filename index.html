@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Mesono Sound Mixer</title>
   <style>
+    /* Full-screen background image from GitHub */
     body {
       margin: 0;
       background: url('https://github.com/scuevastx/mesonocodex/blob/main/mesono-backimage.png?raw=true') no-repeat center center fixed;
@@ -13,54 +14,71 @@
       color: white;
       text-align: center;
     }
+    /* Canvas renders the orb & ripples */
     canvas {
       cursor: pointer;
       position: absolute;
-      top: 0;
-      left: 0;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
       z-index: 0;
     }
+    /* Direction labels & controls sit above canvas */
     .label {
       position: absolute;
-      font-size: 1.2rem;
-      font-weight: bold;
-      z-index: 2;
+      font-size: 1.1rem;
+      font-weight: 700;
+      z-index: 3;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.4);
+      user-select: none;
     }
-    #upload, #uploadLogo {
-      position: fixed;
-      bottom: 10px;
-      left: 10px;
-      z-index: 2;
-    }
+    /* Central brand mark placed between canvas and labels */
     #logoImage {
-      display: block;
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
       max-width: 600px;
       max-height: 600px;
-      z-index: -1;
-      pointer-events: none;
-      opacity: 0.25;
+      z-index: 1;             /* ABOVE canvas, BELOW labels */
+      pointer-events: none;    /* Don't block dragging */
+      opacity: 0.25;           /* Ambient feel */
+      display: block;          /* Ensure visible */
+    }
+    /* Simple pill styling for Start/Stop */
+    .btn { padding: 6px 10px; border-radius: 999px; background: rgba(0,0,0,0.35); }
+    .btn:hover { background: rgba(0,0,0,0.5); }
+    
+    /* Debug panel (togglable) */
+    #debug {
+      position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+      z-index: 4; background: rgba(0,0,0,0.35); padding: 6px 10px; border-radius: 8px; font-size: 12px;
+      display: none;
     }
   </style>
 </head>
 <body>
   <canvas id="canvas"></canvas>
 
-  <img id="logoImage" src="mesono-logo.png">
-  <div id="hz" class="label" style="top: 5%; left: 50%; transform: translateX(-50%)">hz</div>
-  <div id="music" class="label" style="top: 50%; left: 5%; transform: translateY(-50%)">music</div>
-  <div id="white-noise" class="label" style="top: 50%; right: 5%; transform: translateY(-50%)">white noise</div>
-  <div id="pink-noise" class="label" style="bottom: 5%; left: 50%; transform: translateX(-50%)">pink noise</div>
-  <div id="start" class="label" style="bottom: 5%; left: 5%">START</div>
-  <div id="stop" class="label" style="bottom: 5%; right: 5%">STOP</div>
+  <!-- Center logo (ensure mesono-logo.png exists in the same folder) -->
+  <img id="logoImage" src="mesono-logo.png" alt="Mesono Logo" />
+
+  <!-- Labels: N/E/S/W & controls -->
+  <div class="label" style="top: 5%; left: 50%; transform: translateX(-50%)">hz</div>
+  <div class="label" style="top: 50%; left: 4%; transform: translateY(-50%)">music</div>
+  <div class="label" style="top: 50%; right: 4%; transform: translateY(-50%)">white noise</div>
+  <div class="label" style="bottom: 8%; left: 50%; transform: translateX(-50%)">pink noise</div>
+
+  <div id="start" class="label btn" style="bottom: 6%; left: 4%">START</div>
+  <div id="stop" class="label btn" style="bottom: 6%; right: 4%">STOP</div>
+
+  <!-- Debug readout (press D to toggle) -->
+  <div id="debug">g_hz: 0.00 | g_music: 0.00 | g_white: 0.00 | g_pink: 0.00</div>
 
   <script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
 
+    // Center & orb state
     const center = { x: 0, y: 0 };
     const orb = { x: 0, y: 0, radius: 25, dragging: false };
 
@@ -69,79 +87,140 @@
       canvas.height = window.innerHeight;
       center.x = canvas.width / 2;
       center.y = canvas.height / 2;
-      orb.x = center.x;
-      orb.y = center.y;
+      if (!orb.dragging) { // keep orb centered unless being dragged
+        orb.x = center.x;
+        orb.y = center.y;
+      }
     }
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
-    const points = {
-      hz: { x: 0, y: -250, gain: 0 },
-      music: { x: -250, y: 0, gain: 0 },
-      "white-noise": { x: 250, y: 0, gain: 0 },
-      "pink-noise": { x: 0, y: 250, gain: 0 }
+    // Distance from center to each point (for the mix curve)
+    const ARM = 250;
+
+    // Calibration to balance perceived loudness across sources
+    const CAL = {
+      'hz': 0.35,          // tone tends to be quieter perceptually
+      'music': 0.25,
+      'white-noise': 0.12, // noises are loud — keep lower
+      'pink-noise': 0.15
     };
 
-    let audioCtx, gainNodes = {}, sources = {}, ripples = [];
+    // Audio plumbing
+    let audioCtx;
+    const gainNodes = { hz: null, music: null, 'white-noise': null, 'pink-noise': null };
+    let masterGain = null; // overall volume control
+    const sources   = {};
+    const ripples = [];
 
     function initAudio() {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const bufferSize = 2 * audioCtx.sampleRate;
-      ['white-noise', 'pink-noise'].forEach(type => {
+
+      // Master gain with gentle fade-in
+      masterGain = audioCtx.createGain();
+      masterGain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+      masterGain.connect(audioCtx.destination);
+      // Fade up to comfortable listening level
+      const TARGET = 0.18; // overall volume
+      masterGain.gain.exponentialRampToValueAtTime(TARGET, audioCtx.currentTime + 1.5);
+
+      // Helper to create a noise chain with a gentle low shelf to tame harshness
+      function makeNoise(type, shelfGainDb) {
+        const bufferSize = 2 * audioCtx.sampleRate;
         const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
         const output = noiseBuffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) {
-          output[i] = Math.random() * 2 - 1;
-        }
-        const noiseSource = audioCtx.createBufferSource();
-        noiseSource.buffer = noiseBuffer;
-        noiseSource.loop = true;
-        sources[type] = noiseSource;
-        gainNodes[type] = audioCtx.createGain();
-        noiseSource.connect(gainNodes[type]).connect(audioCtx.destination);
-        noiseSource.start();
-      });
+        for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
+        const src = audioCtx.createBufferSource();
+        src.buffer = noiseBuffer; src.loop = true;
 
-      const oscillator = audioCtx.createOscillator();
-      oscillator.type = 'sine';
-      oscillator.frequency.value = 174;
-      gainNodes.hz = audioCtx.createGain();
-      oscillator.connect(gainNodes.hz).connect(audioCtx.destination);
-      oscillator.start();
-    }
+        const shelf = audioCtx.createBiquadFilter();
+        shelf.type = 'lowshelf';
+        shelf.frequency.value = 200;      // lift/attenuate lows to soften brightness
+        shelf.gain.value = shelfGainDb;   // negative number reduces rumble/boom
 
-    function preloadMusic() {
+        const g = audioCtx.createGain();
+        g.gain.setValueAtTime(0.0, audioCtx.currentTime);
+
+        src.connect(shelf).connect(g).connect(masterGain);
+        src.start();
+        sources[type] = src;
+        gainNodes[type] = g;
+      }
+
+      // White / Pink noise (different shelves to balance tone color)
+      makeNoise('white-noise', -6);
+      makeNoise('pink-noise', -3);
+
+      // Sine wave (Hz)
+      const osc = audioCtx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = 174; // base tone
+      const hzGain = audioCtx.createGain();
+      hzGain.gain.setValueAtTime(0.0, audioCtx.currentTime);
+      osc.connect(hzGain).connect(masterGain);
+      osc.start();
+      gainNodes.hz = hzGain;
+
+      // Music (preload file from same folder)
       fetch('mesono-theme.mp3')
-        .then(res => res.arrayBuffer())
-        .then(data => {
-          audioCtx.decodeAudioData(data, function(buffer) {
-            const source = audioCtx.createBufferSource();
-            source.buffer = buffer;
-            source.loop = true;
-            gainNodes.music = audioCtx.createGain();
-            source.connect(gainNodes.music).connect(audioCtx.destination);
-            source.start();
-            sources.music = source;
-          });
-        });
+        .then(r => r.arrayBuffer())
+        .then(buf => audioCtx.decodeAudioData(buf))
+        .then(decoded => {
+          const src = audioCtx.createBufferSource();
+          src.buffer = decoded; src.loop = true;
+          const mg = audioCtx.createGain();
+          mg.gain.setValueAtTime(0.0, audioCtx.currentTime);
+          src.connect(mg).connect(masterGain);
+          src.start();
+          sources.music = src;
+          gainNodes.music = mg;
+        })
+        .catch(() => console.warn('Music file not found or blocked. Ensure mesono-theme.mp3 is alongside index.html.'));
     }
 
-    document.getElementById('start').onclick = function() {
-      if (!audioCtx) {
-        initAudio();
-        preloadMusic();
-      }
-    };
+    // Inverted mixing curve: loudest at center, quieter toward each point along its axis
+    function updateGains() {
+      if (!audioCtx) return;
+      const now = audioCtx.currentTime;
+      const T = 0.06; // smoothing time constant for changes
 
-    document.getElementById('stop').onclick = function() {
-      if (audioCtx) {
-        Object.values(gainNodes).forEach(g => g.gain.setValueAtTime(0, audioCtx.currentTime));
+      const ox = orb.x - center.x;
+      const oy = orb.y - center.y;
+
+      function gainToward(ux, uy) {
+        const proj = ox * ux + oy * uy;                // signed axial distance from center
+        const norm = Math.max(0, Math.min(ARM, proj)); // toward the point only
+        const g = 1 - (norm / ARM);                    // 1 at center -> 0 at the point
+        return Math.max(0, Math.min(1, g));
       }
-    };
+
+      const targets = {
+        'hz':          CAL['hz']          * gainToward( 0,-1),
+        'music':       CAL['music']       * gainToward(-1, 0),
+        'white-noise': CAL['white-noise'] * gainToward( 1, 0),
+        'pink-noise':  CAL['pink-noise']  * gainToward( 0, 1),
+      };
+
+      for (const key of Object.keys(targets)) {
+        const node = gainNodes[key];
+        if (!node) continue;
+        const target = targets[key];
+        // Smooth to avoid clicks; clamp tiny floor
+        const safe = Math.max(0.0001, Math.min(1, target));
+        node.gain.setTargetAtTime(safe, now, T);
+      }
+
+      // Debug HUD (optional)
+      const hud = document.getElementById('debug');
+      if (hud && hud.style.display !== 'none') {
+        hud.textContent = `g_hz: ${targets.hz.toFixed(2)} | g_music: ${targets.music.toFixed(2)} | g_white: ${targets['white-noise'].toFixed(2)} | g_pink: ${targets['pink-noise'].toFixed(2)}`;
+      }
+    }
 
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+      // Ripples
       for (let i = ripples.length - 1; i >= 0; i--) {
         const r = ripples[i];
         ctx.beginPath();
@@ -154,13 +233,15 @@
         if (r.alpha <= 0) ripples.splice(i, 1);
       }
 
+      // Concentric guides
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
       for (let i = 1; i <= 6; i++) {
         ctx.beginPath();
         ctx.arc(center.x, center.y, i * 60, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
         ctx.stroke();
       }
 
+      // Orb
       ctx.beginPath();
       ctx.arc(orb.x, orb.y, orb.radius, 0, Math.PI * 2);
       ctx.fillStyle = '#fff';
@@ -170,19 +251,6 @@
       ctx.shadowBlur = 0;
     }
 
-    function updateGains() {
-      const maxDist = 300;
-      for (const [key, point] of Object.entries(points)) {
-        const px = center.x + point.x;
-        const py = center.y + point.y;
-        const dist = Math.hypot(orb.x - px, orb.y - py);
-        const gain = Math.min(1, dist / maxDist); // loudest in center, quieter near point
-        if (gainNodes[key]) {
-          gainNodes[key].gain.setValueAtTime(gain, audioCtx.currentTime);
-        }
-      }
-    }
-
     function animate() {
       draw();
       updateGains();
@@ -190,23 +258,42 @@
     }
     animate();
 
-    canvas.addEventListener('mousedown', e => {
+    // Interactions
+    canvas.addEventListener('mousedown', (e) => {
       const dx = e.clientX - orb.x;
       const dy = e.clientY - orb.y;
-      if (Math.sqrt(dx * dx + dy * dy) < orb.radius) {
-        orb.dragging = true;
-      }
+      if (Math.hypot(dx, dy) < orb.radius) orb.dragging = true;
     });
-
-    canvas.addEventListener('mouseup', () => orb.dragging = false);
-    canvas.addEventListener('mouseleave', () => orb.dragging = false);
-    canvas.addEventListener('mousemove', e => {
+    canvas.addEventListener('mouseup',   () => (orb.dragging = false));
+    canvas.addEventListener('mouseleave',() => (orb.dragging = false));
+    canvas.addEventListener('mousemove', (e) => {
       if (orb.dragging) {
         orb.x = e.clientX;
         orb.y = e.clientY;
         ripples.push({ x: orb.x, y: orb.y, radius: 10, alpha: 0.5 });
       }
     });
+
+    // START/STOP handlers (user gesture required to start audio)
+    document.getElementById('start').onclick = function () {
+      if (!audioCtx) initAudio();
+    };
+    document.getElementById('stop').onclick = function () {
+      if (!audioCtx) return;
+      const now = audioCtx.currentTime;
+      // gentle fade out
+      masterGain.gain.cancelScheduledValues(now);
+      masterGain.gain.setTargetAtTime(0.0001, now, 0.2);
+    };
+
+    // Debug toggle (press D)
+    window.addEventListener('keydown', (e) => {
+      if (e.key.toLowerCase() === 'd') {
+        const hud = document.getElementById('debug');
+        hud.style.display = hud.style.display === 'none' ? 'block' : 'none';
+      }
+    });
   </script>
 </body>
 </html>
+
