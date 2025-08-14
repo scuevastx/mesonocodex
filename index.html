@@ -76,8 +76,6 @@
 
     const logoImage = document.getElementById('logoImage');
 
-    // Logo preload handled via src attribute. Upload removed.
-
     const points = {
       hz: { x: 0, y: -250, gain: 0 },
       music: { x: -250, y: 0, gain: 0 },
@@ -114,23 +112,20 @@
     }
 
     function preloadMusic() {
-  fetch('mesono-theme.mp3')
-    .then(res => res.arrayBuffer())
-    .then(data => {
-      audioCtx.decodeAudioData(data, function(buffer) {
-        const source = audioCtx.createBufferSource();
-        source.buffer = buffer;
-        source.loop = true;
-        gainNodes.music = audioCtx.createGain();
-        source.connect(gainNodes.music).connect(audioCtx.destination);
-        source.start();
-        sources.music = source;
-      });
-    });
-}
-
-    // Audio preload handled via preloadMusic(). Upload removed.
-    };
+      fetch('mesono-theme.mp3')
+        .then(res => res.arrayBuffer())
+        .then(data => {
+          audioCtx.decodeAudioData(data, function(buffer) {
+            const source = audioCtx.createBufferSource();
+            source.buffer = buffer;
+            source.loop = true;
+            gainNodes.music = audioCtx.createGain();
+            source.connect(gainNodes.music).connect(audioCtx.destination);
+            source.start();
+            sources.music = source;
+          });
+        });
+    }
 
     document.getElementById('start').onclick = function() {
       if (!audioCtx) {
@@ -216,3 +211,4 @@
   </script>
 </body>
 </html>
+
