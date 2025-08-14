@@ -70,9 +70,10 @@
 
   <div id="start" class="label btn" style="bottom: 6%; left: 4%">START</div>
   <div id="stop" class="label btn" style="bottom: 6%; right: 4%">STOP</div>
+  <div id="testMusic" class="label btn" style="bottom: 6%; left: 50%; transform: translateX(-50%)">TEST MUSIC</div>
 
   <!-- Debug readout (press D to toggle) -->
-  <div id="debug">g_hz: 0.00 | g_music: 0.00 | g_white: 0.00 | g_pink: 0.00</div>
+  <div id="debug">g_hz: 0.00 | g_music: 0.00 | g_white: 0.00 | g_pink: 0.00 | music: loading…</div>
 
   <script>
     const canvas = document.getElementById('canvas');
@@ -162,9 +163,9 @@
       gainNodes.hz = hzGain;
 
       // Music (preload file from same folder)
-      fetch('mesono-theme.mp3')
+      fetch('mesono-theme.mp3', {cache:'no-store'})
         .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
-        .then(buf => audioCtx.decodeAudioData(buf))
+        .then(buf => new Promise((res,rej)=> audioCtx.decodeAudioData(buf, res, rej)))
         .then(decoded => {
           const src = audioCtx.createBufferSource();
           src.buffer = decoded; src.loop = true;
@@ -175,8 +176,35 @@
           sources.music = src;
           gainNodes.music = mg;
           console.log('[Mesono] Music buffer loaded.');
+          const hud = document.getElementById('debug');
+          if (hud && hud.style.display !== 'none') hud.textContent = hud.textContent.replace(/\| music:.*/, '| music: loaded');
         })
-        .catch((e) => console.warn('[Mesono] Music file not found or blocked. Ensure mesono-theme.mp3 is alongside index.html.', e));
+        .catch((e) => {
+          console.warn('[Mesono] Buffer path failed, falling back to <audio> element.', e);
+          let el = document.getElementById('musicEl');
+          if(!el){
+            el = document.createElement('audio');
+            el.id = 'musicEl';
+            el.src = 'mesono-theme.mp3';
+            el.crossOrigin = 'anonymous';
+            el.preload = 'auto';
+            el.loop = true;
+            el.style.display = 'none';
+            document.body.appendChild(el);
+          }
+          const srcNode = audioCtx.createMediaElementSource(el);
+          const mg = audioCtx.createGain();
+          mg.gain.setValueAtTime(0.0, audioCtx.currentTime);
+          srcNode.connect(mg).connect(masterGain);
+          gainNodes.music = mg;
+          sources.music = el;
+          el.play().then(()=>{
+            const hud = document.getElementById('debug');
+            if (hud && hud.style.display !== 'none') hud.textContent = hud.textContent.replace(/\| music:.*/, '| music: playing');
+          }).catch(err=>{
+            console.warn('[Mesono] Music element failed to play', err);
+          });
+        });
     }
 
     // Hotspot mixing: each point peaks at its own location with Gaussian falloff
@@ -292,15 +320,39 @@
     document.getElementById('stop').onclick = function () {
       if (!audioCtx) return;
       const now = audioCtx.currentTime;
-      // gentle fade out but keep context alive so START can resume
       masterGain.gain.cancelScheduledValues(now);
       masterGain.gain.setTargetAtTime(0.0001, now, 0.2);
+      // If using media element fallback, pause it while stopped
+      if (sources.music instanceof HTMLAudioElement) {
+        sources.music.pause();
+      }
     };
 
     // Debug toggle (press D)
     window.addEventListener('keydown', (e) => {
       if (e.key.toLowerCase() === 'd') {
         const hud = document.getElementById('debug');
+        hud.style.display = hud.style.display === 'none' ? 'block' : 'none';
+      }
+    });
+
+    // TEST MUSIC: briefly bring up the music layer to confirm it plays
+    document.getElementById('testMusic').onclick = function(){
+      if (!audioCtx) initAudio();
+      const now = audioCtx.currentTime;
+      masterGain.gain.cancelScheduledValues(now);
+      masterGain.gain.setTargetAtTime(0.18, now, 0.05);
+      if (gainNodes.music) {
+        gainNodes.music.gain.setTargetAtTime(0.6, now, 0.05);
+        setTimeout(()=>{
+          const n = audioCtx.currentTime;
+          gainNodes.music.gain.setTargetAtTime(0.0001, n, 0.15);
+        }, 1500);
+      }
+      if (sources.music instanceof HTMLAudioElement && sources.music.paused) {
+        sources.music.play().catch(()=>{});
+      }
+    };
         hud.style.display = hud.style.display === 'none' ? 'block' : 'none';
       }
     });
@@ -331,3 +383,4 @@
   </script>
 </body>
 </html>
+
