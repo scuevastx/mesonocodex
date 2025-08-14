@@ -5,19 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mesono Sound Mixer</title>
   <style>
-    /* Full-screen background image from GitHub */
     body {
       margin: 0;
-      background: url('https://github.com/scuevastx/mesonocodex/blob/main/mesono-backimage.png?raw=true') no-repeat center center fixed;
-      background-size: cover;
+      background: linear-gradient(135deg, #2c3e50 0%, #34495e 50%, #2c3e50 100%);
       overflow: hidden;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       color: white;
       text-align: center;
-      touch-action: none; /* Prevent scrolling on touch devices */
+      touch-action: none;
     }
 
-    /* Loading spinner */
     .loader {
       position: absolute;
       top: 50%;
@@ -38,7 +35,6 @@
       100% { transform: translate(-50%, -50%) rotate(360deg); }
     }
 
-    /* Canvas renders the orb & ripples */
     canvas {
       cursor: pointer;
       position: absolute;
@@ -48,99 +44,6 @@
       touch-action: none;
     }
 
-    /* Direction labels & controls sit above canvas */
-    .label {
-      position: absolute;
-      font-size: clamp(0.8rem, 2.5vw, 1rem);
-      font-weight: 700;
-      z-index: 3;
-      text-shadow: 0 2px 10px rgba(0,0,0,0.8);
-      user-select: none;
-      pointer-events: none;
-      backdrop-filter: blur(5px);
-      background: rgba(0,0,0,0.2);
-      padding: 4px 8px;
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.1);
-    }
-
-    /* Central brand mark placed between canvas and labels */
-    #logoImage {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      max-width: min(600px, 80vw);
-      max-height: min(600px, 80vh);
-      z-index: 1;
-      pointer-events: none;
-      opacity: 0.25;
-      display: block;
-      transition: opacity 0.3s ease;
-    }
-
-    /* Simple pill styling for buttons */
-    .btn { 
-      padding: clamp(8px, 2vw, 12px) clamp(12px, 3vw, 16px);
-      border-radius: 20px;
-      background: rgba(0,0,0,0.5);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255,255,255,0.3);
-      cursor: pointer;
-      transition: all 0.2s ease;
-      pointer-events: auto;
-      font-size: clamp(0.7rem, 2vw, 0.9rem);
-      font-weight: 600;
-      min-width: 60px;
-      text-align: center;
-    }
-    .btn:hover { 
-      background: rgba(0,0,0,0.5);
-      transform: scale(1.05);
-    }
-    .btn:active { 
-      transform: scale(0.95);
-    }
-    .btn.active {
-      background: rgba(76, 175, 80, 0.5);
-      border-color: rgba(76, 175, 80, 0.8);
-    }
-
-    /* Error message styling */
-    .error-message {
-      position: absolute;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(244, 67, 54, 0.9);
-      color: white;
-      padding: 10px 20px;
-      border-radius: 8px;
-      z-index: 5;
-      display: none;
-      font-size: 0.9rem;
-      max-width: 90%;
-      text-align: center;
-    }
-
-    /* Debug panel (togglable) */
-    #debug {
-      position: absolute; 
-      bottom: 12px; 
-      left: 50%; 
-      transform: translateX(-50%);
-      z-index: 4; 
-      background: rgba(0,0,0,0.35); 
-      padding: 8px 12px; 
-      border-radius: 8px; 
-      font-size: clamp(10px, 1.5vw, 12px);
-      display: none;
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255,255,255,0.1);
-      font-family: 'Courier New', monospace;
-    }
-
-    /* Volume control */
     .volume-control {
       position: absolute;
       top: 15px;
@@ -167,7 +70,70 @@
       cursor: pointer;
     }
 
-    /* Responsive adjustments */
+    .btn { 
+      position: absolute;
+      padding: clamp(8px, 2vw, 12px) clamp(12px, 3vw, 16px);
+      border-radius: 20px;
+      background: rgba(0,0,0,0.5);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.3);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-size: clamp(0.7rem, 2vw, 0.9rem);
+      font-weight: 600;
+      min-width: 60px;
+      text-align: center;
+      z-index: 3;
+      color: white;
+      user-select: none;
+    }
+
+    .btn:hover { 
+      background: rgba(0,0,0,0.7);
+      transform: scale(1.05);
+    }
+
+    .btn:active { 
+      transform: scale(0.95);
+    }
+
+    .btn.active {
+      background: rgba(124, 149, 136, 0.7);
+      border-color: rgba(124, 149, 136, 0.9);
+    }
+
+    .error-message {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(244, 67, 54, 0.9);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 8px;
+      z-index: 5;
+      display: none;
+      font-size: 0.9rem;
+      max-width: 90%;
+      text-align: center;
+    }
+
+    #debug {
+      position: absolute; 
+      bottom: 12px; 
+      left: 50%; 
+      transform: translateX(-50%);
+      z-index: 4; 
+      background: rgba(0,0,0,0.35); 
+      padding: 8px 12px; 
+      border-radius: 8px; 
+      font-size: clamp(10px, 1.5vw, 12px);
+      display: none;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.1);
+      font-family: 'Courier New', monospace;
+    }
+
     @media (max-width: 768px) {
       .volume-control {
         top: 10px;
@@ -177,29 +143,10 @@
       .volume-slider {
         width: clamp(50px, 12vw, 60px);
       }
-      .label {
-        font-size: clamp(0.7rem, 3vw, 0.9rem);
-        padding: 2px 6px;
-      }
       .btn {
         font-size: clamp(0.6rem, 2.5vw, 0.8rem);
         padding: 6px 10px;
         min-width: 50px;
-      }
-    }
-
-    @media (max-width: 480px) {
-      .volume-control {
-        top: 8px;
-        padding: 3px 6px;
-      }
-      .label {
-        padding: 1px 4px;
-        font-size: clamp(0.6rem, 3.5vw, 0.8rem);
-      }
-      .btn {
-        padding: 5px 8px;
-        min-width: 45px;
       }
     }
   </style>
@@ -210,35 +157,21 @@
   
   <canvas id="canvas"></canvas>
 
-  <!-- Center logo -->
-  <img id="logoImage" src="mesono-logo.png" alt="Mesono Logo" onerror="this.style.display='none'" />
-
-  <!-- Volume control -->
   <div class="volume-control">
     <span>Vol</span>
     <input type="range" id="volumeSlider" class="volume-slider" min="0" max="100" value="18" />
   </div>
 
-  <!-- Labels: N/E/S/W positioned closer to center with mobile-optimized distances -->
-  <div class="label" style="top: 20%; left: 50%; transform: translateX(-50%)">hz</div>
-  <div class="label" style="top: 50%; left: 15%; transform: translateY(-50%)">music</div>
-  <div class="label" style="top: 50%; right: 15%; transform: translateY(-50%)">white noise</div>
-  <div class="label" style="bottom: 20%; left: 50%; transform: translateX(-50%)">pink noise</div>
+  <div id="start" class="btn" style="bottom: 12%; left: 50%; transform: translateX(-120%)">START</div>
+  <div id="stop" class="btn" style="bottom: 12%; left: 50%; transform: translateX(20%)">STOP</div>
 
-  <!-- Start/Stop buttons positioned closer to center -->
-  <div id="start" class="label btn" style="bottom: 12%; left: 50%; transform: translateX(-120%)">START</div>
-  <div id="stop" class="label btn" style="bottom: 12%; left: 50%; transform: translateX(20%)">STOP</div>
-
-  <!-- Debug readout (press D to toggle) -->
   <div id="debug">g_hz: 0.00 | g_music: 0.00 | g_white: 0.00 | g_pink: 0.00</div>
 
   <script>
-    // Application state
     const state = {
       isPlaying: false,
       isLoading: false,
-      audioInitialized: false,
-      musicLoaded: false
+      audioInitialized: false
     };
 
     const canvas = document.getElementById('canvas');
@@ -246,7 +179,6 @@
     const loader = document.getElementById('loader');
     const errorMessage = document.getElementById('errorMessage');
 
-    // Center & orb state
     const center = { x: 0, y: 0 };
     const orb = { 
       x: 0, y: 0, 
@@ -254,11 +186,9 @@
       dragging: false,
       targetX: 0,
       targetY: 0,
-      smoothing: 0.1, // For smooth movement
-      resetToCenter: false // Flag for center reset animation
+      resetToCenter: false
     };
 
-    // Error handling
     function showError(message, duration = 5000) {
       errorMessage.textContent = message;
       errorMessage.style.display = 'block';
@@ -299,7 +229,6 @@
       center.x = rect.width / 2;
       center.y = rect.height / 2;
       
-      // Only reset orb position on initial load, not on resize
       if (!orb.dragging && (orb.x === 0 && orb.y === 0)) {
         orb.x = center.x;
         orb.y = center.y;
@@ -308,7 +237,6 @@
       }
     }
 
-    // Debounced resize
     let resizeTimeout;
     function handleResize() {
       clearTimeout(resizeTimeout);
@@ -318,27 +246,23 @@
     resizeCanvas();
     window.addEventListener('resize', handleResize);
 
-    // Responsive ARM distance
     function getARM() {
       return Math.min(250, Math.min(canvas.width, canvas.height) * 0.25);
     }
 
-    // Calibration to balance perceived loudness across sources
     const CAL = {
       'hz': 0.40,
-      'music': 0.80,
-      'white-noise': 0.06,
-      'pink-noise': 0.08
+      'music': 1.04,
+      'white-noise': 0.048,
+      'pink-noise': 0.0544
     };
 
-    // Audio plumbing
     let audioCtx;
     const gainNodes = { hz: null, music: null, 'white-noise': null, 'pink-noise': null };
     let masterGain = null;
     const sources = {};
     const ripples = [];
 
-    // Volume control
     const volumeSlider = document.getElementById('volumeSlider');
     volumeSlider.addEventListener('input', (e) => {
       if (masterGain) {
@@ -355,26 +279,21 @@
         
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         
-        // Resume context if suspended (required for some browsers)
         if (audioCtx.state === 'suspended') {
           await audioCtx.resume();
         }
 
-        // Master gain with gentle fade-in
         masterGain = audioCtx.createGain();
         masterGain.gain.setValueAtTime(0.0001, audioCtx.currentTime);
         masterGain.connect(audioCtx.destination);
 
-        // Set initial volume from slider
         const initialVolume = parseFloat(volumeSlider.value) / 100;
         masterGain.gain.exponentialRampToValueAtTime(initialVolume, audioCtx.currentTime + 1.5);
 
-        // Create noise sources
         await Promise.all([
-          createNoiseSource('white-noise', -6),
-          createNoiseSource('pink-noise', -3),
-          createOscillator(),
-          loadMusicFile()
+          createNoiseSource('white-noise'),
+          createNoiseSource('pink-noise'),
+          createOscillator()
         ]);
 
         state.audioInitialized = true;
@@ -387,16 +306,14 @@
       }
     }
 
-    function createNoiseSource(type, shelfGainDb) {
+    function createNoiseSource(type) {
       return new Promise((resolve) => {
         try {
           const bufferSize = 2 * audioCtx.sampleRate;
           const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
           const output = noiseBuffer.getChannelData(0);
           
-          // Generate appropriate noise type
           if (type === 'pink-noise') {
-            // Simple pink noise approximation
             let b0, b1, b2, b3, b4, b5, b6;
             b0 = b1 = b2 = b3 = b4 = b5 = b6 = 0.0;
             for (let i = 0; i < bufferSize; i++) {
@@ -411,7 +328,6 @@
               b6 = white * 0.115926;
             }
           } else {
-            // White noise
             for (let i = 0; i < bufferSize; i++) {
               output[i] = Math.random() * 2 - 1;
             }
@@ -421,15 +337,10 @@
           src.buffer = noiseBuffer;
           src.loop = true;
 
-          const shelf = audioCtx.createBiquadFilter();
-          shelf.type = 'lowshelf';
-          shelf.frequency.value = 200;
-          shelf.gain.value = shelfGainDb;
-
           const g = audioCtx.createGain();
           g.gain.setValueAtTime(0.0, audioCtx.currentTime);
 
-          src.connect(shelf).connect(g).connect(masterGain);
+          src.connect(g).connect(masterGain);
           src.start();
           
           sources[type] = src;
@@ -438,7 +349,7 @@
           
         } catch (error) {
           console.warn(`[Mesono] Failed to create ${type}:`, error);
-          resolve(); // Don't fail the whole initialization
+          resolve();
         }
       });
     }
@@ -465,36 +376,6 @@
           resolve();
         }
       });
-    }
-
-    async function loadMusicFile() {
-      try {
-        const response = await fetch('mesono-theme.mp3');
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        
-        const arrayBuffer = await response.arrayBuffer();
-        const decoded = await audioCtx.decodeAudioData(arrayBuffer);
-        
-        const src = audioCtx.createBufferSource();
-        src.buffer = decoded;
-        src.loop = true;
-        
-        const mg = audioCtx.createGain();
-        mg.gain.setValueAtTime(0.0, audioCtx.currentTime);
-        
-        src.connect(mg).connect(masterGain);
-        src.start();
-        
-        sources.music = src;
-        gainNodes.music = mg;
-        state.musicLoaded = true;
-        
-        console.log('[Mesono] Music buffer loaded.');
-        
-      } catch (error) {
-        console.warn('[Mesono] Music file not found or failed to load:', error);
-        showError('Music file could not be loaded. Other sounds will work normally.', 3000);
-      }
     }
 
     function updateGains() {
@@ -529,20 +410,17 @@
         node.gain.setTargetAtTime(target, now, T);
       }
 
-      // Update debug HUD
       const hud = document.getElementById('debug');
       if (hud && hud.style.display !== 'none') {
-        hud.textContent = `g_hz: ${targets.hz.toFixed(2)} | g_music: ${targets.music.toFixed(2)} | g_white: ${targets['white-noise'].toFixed(2)} | g_pink: ${targets['pink-noise'].toFixed(2)}`;
+        hud.textContent = `g_hz: ${targets.hz.toFixed(2)} | g_music: ${(targets.music || 0).toFixed(2)} | g_white: ${targets['white-noise'].toFixed(2)} | g_pink: ${targets['pink-noise'].toFixed(2)}`;
       }
     }
 
     function updateOrbPosition() {
-      // Only smooth movement when explicitly resetting to center (R key)
       if (!orb.dragging && orb.resetToCenter) {
-        orb.x += (orb.targetX - orb.x) * orb.smoothing;
-        orb.y += (orb.targetY - orb.y) * orb.smoothing;
+        orb.x += (orb.targetX - orb.x) * 0.1;
+        orb.y += (orb.targetY - orb.y) * 0.1;
         
-        // Stop smoothing when close enough to target
         if (Math.hypot(orb.x - orb.targetX, orb.y - orb.targetY) < 1) {
           orb.x = orb.targetX;
           orb.y = orb.targetY;
@@ -555,7 +433,6 @@
       const rect = canvas.getBoundingClientRect();
       ctx.clearRect(0, 0, rect.width, rect.height);
 
-      // Ripples with better opacity handling
       for (let i = ripples.length - 1; i >= 0; i--) {
         const r = ripples[i];
         if (r.alpha <= 0) {
@@ -565,7 +442,7 @@
         
         ctx.beginPath();
         ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(76, 175, 80, ${r.alpha})`;
+        ctx.strokeStyle = `rgba(124, 149, 136, ${r.alpha})`;
         ctx.lineWidth = 2;
         ctx.stroke();
         
@@ -573,7 +450,6 @@
         r.alpha -= 0.01;
       }
 
-      // Concentric guides with responsive sizing
       const ARM = getARM();
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
       ctx.lineWidth = 1;
@@ -584,25 +460,22 @@
         ctx.stroke();
       }
 
-      // Orb with green styling and glow effect
       ctx.save();
       
-      // Outer glow/shadow
       ctx.shadowBlur = 20;
-      ctx.shadowColor = orb.dragging ? '#4CAF50' : '#66BB6A';
+      ctx.shadowColor = '#7c9588';
       ctx.shadowOffsetX = 0;
       ctx.shadowOffsetY = 0;
       
-      // Create radial gradient for the orb
       const gradient = ctx.createRadialGradient(orb.x, orb.y, 0, orb.x, orb.y, orb.radius);
       if (orb.dragging) {
-        gradient.addColorStop(0, '#A5D6A7');    // Very light green center when dragging
-        gradient.addColorStop(0.6, '#66BB6A');  // Medium green
-        gradient.addColorStop(1, '#2E7D32');    // Dark green edge
+        gradient.addColorStop(0, '#a8b8a8');
+        gradient.addColorStop(0.6, '#7c9588');
+        gradient.addColorStop(1, '#5a6b5f');
       } else {
-        gradient.addColorStop(0, '#81C784');    // Light green center
-        gradient.addColorStop(0.6, '#4CAF50');  // Main green
-        gradient.addColorStop(1, '#388E3C');    // Darker green edge
+        gradient.addColorStop(0, '#9db09d');
+        gradient.addColorStop(0.6, '#7c9588');
+        gradient.addColorStop(1, '#677371');
       }
       
       ctx.beginPath();
@@ -621,7 +494,6 @@
     }
     animate();
 
-    // Enhanced interaction handling with touch support
     function getEventPos(e) {
       const rect = canvas.getBoundingClientRect();
       const clientX = e.clientX || (e.touches && e.touches[0].clientX);
@@ -635,10 +507,9 @@
     function isInOrb(pos) {
       const dx = pos.x - orb.x;
       const dy = pos.y - orb.y;
-      return Math.hypot(dx, dy) < orb.radius * 1.2; // Slightly larger hit area
+      return Math.hypot(dx, dy) < orb.radius * 1.2;
     }
 
-    // Mouse events
     canvas.addEventListener('mousedown', (e) => {
       const pos = getEventPos(e);
       if (isInOrb(pos)) {
@@ -664,7 +535,6 @@
       }
     });
 
-    // Touch events
     canvas.addEventListener('touchstart', (e) => {
       const pos = getEventPos(e);
       if (isInOrb(pos)) {
@@ -688,7 +558,6 @@
       }
     }, { passive: false });
 
-    // START/STOP handlers
     document.getElementById('start').onclick = async function () {
       try {
         if (!state.audioInitialized) {
@@ -724,7 +593,6 @@
       }
     };
 
-    // Keyboard shortcuts
     window.addEventListener('keydown', (e) => {
       const key = e.key.toLowerCase();
       
@@ -733,7 +601,7 @@
           const hud = document.getElementById('debug');
           hud.style.display = hud.style.display === 'none' ? 'block' : 'none';
           break;
-        case ' ': // Spacebar
+        case ' ':
           e.preventDefault();
           if (state.isPlaying) {
             document.getElementById('stop').click();
@@ -741,40 +609,17 @@
             document.getElementById('start').click();
           }
           break;
-        case 'r': // Reset orb to center
+        case 'r':
           orb.targetX = center.x;
           orb.targetY = center.y;
-          orb.resetToCenter = true; // Enable smooth animation to center
+          orb.resetToCenter = true;
           break;
       }
     });
 
-    // Initialize button states
     updateButtonStates();
 
-    // Enhanced self-tests
-    (function runSelfTests() {
-      try {
-        console.assert(document.getElementById('canvas'), 'Canvas exists');
-        console.assert(document.getElementById('logoImage'), 'Logo image exists');
-        console.assert(typeof updateGains === 'function', 'updateGains is defined');
-        console.assert(['hz','music','white-noise','pink-noise'].every(k => k in CAL), 'CAL has all layers');
-        console.assert(document.querySelectorAll('#logoImage').length === 1, 'No duplicate logoImage IDs');
-        console.assert(typeof document.getElementById('start').onclick === 'function', 'START handler attached');
-        console.assert(typeof document.getElementById('stop').onclick === 'function', 'STOP handler attached');
-        console.assert(typeof volumeSlider.oninput === 'function', 'Volume control works');
-        
-        // Test responsive ARM calculation
-        console.assert(typeof getARM() === 'number' && getARM() > 0, 'getARM returns valid number');
-        
-        // Test state management
-        console.assert(typeof state === 'object' && 'isPlaying' in state, 'State object exists');
-        
-        console.log('[Mesono] Enhanced self-tests passed');
-      } catch (e) {
-        console.error('[Mesono] Self-tests failed', e);
-      }
-    })();
+    console.log('[Mesono] Sound Mixer initialized successfully');
   </script>
 </body>
 </html>
