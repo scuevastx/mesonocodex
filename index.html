@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Mesono Sound Mixer</title>
+  <style>
+    body {
+      margin: 0;
+      background-color: #a59682;
+      overflow: hidden;
+      font-family: sans-serif;
+      color: white;
+      text-align: center;
+    }
+    canvas {
+      cursor: pointer;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 0;
+    }
+    .label {
+      position: absolute;
+      font-size: 1.2rem;
+      font-weight: bold;
+      z-index: 2;
+    }
+    #upload, #uploadLogo {
+      position: fixed;
+      bottom: 10px;
+      left: 10px;
+      z-index: 2;
+    }
+    #logoImage {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      max-width: 600px;
+      max-height: 600px;
+      z-index: -1;
+      pointer-events: none;
+      opacity: 0.25;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  
+  <img id="logoImage" src="mesono-logo.png" style="display: block;">
+  <div id="hz" class="label" style="top: 5%; left: 50%; transform: translateX(-50%)">hz</div>
+  <div id="music" class="label" style="top: 50%; left: 5%; transform: translateY(-50%)">music</div>
+  <div id="white-noise" class="label" style="top: 50%; right: 5%; transform: translateY(-50%)">white noise</div>
+  <div id="pink-noise" class="label" style="bottom: 5%; left: 50%; transform: translateX(-50%)">pink noise</div>
+  <div id="start" class="label" style="bottom: 5%; left: 5%">START</div>
+  <div id="stop" class="label" style="bottom: 5%; right: 5%">STOP</div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    const center = { x: 0, y: 0 };
+    const orb = { x: 0, y: 0, radius: 25, dragging: false };
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      center.x = canvas.width / 2;
+      center.y = canvas.height / 2;
+      orb.x = center.x;
+      orb.y = center.y;
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    const logoImage = document.getElementById('logoImage');
+
+    // Logo preload handled via src attribute. Upload removed.
+
+    const points = {
+      hz: { x: 0, y: -250, gain: 0 },
+      music: { x: -250, y: 0, gain: 0 },
+      "white-noise": { x: 250, y: 0, gain: 0 },
+      "pink-noise": { x: 0, y: 250, gain: 0 }
+    };
+
+    let audioCtx, gainNodes = {}, sources = {}, files = {}, ripples = [];
+
+    function initAudio() {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const bufferSize = 2 * audioCtx.sampleRate;
+      ['white-noise', 'pink-noise'].forEach(type => {
+        const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          output[i] = Math.random() * 2 - 1;
+        }
+        const noiseSource = audioCtx.createBufferSource();
+        noiseSource.buffer = noiseBuffer;
+        noiseSource.loop = true;
+        sources[type] = noiseSource;
+        gainNodes[type] = audioCtx.createGain();
+        noiseSource.connect(gainNodes[type]).connect(audioCtx.destination);
+        noiseSource.start();
+      });
+
+      const oscillator = audioCtx.createOscillator();
+      oscillator.type = 'sine';
+      oscillator.frequency.value = 174;
+      gainNodes.hz = audioCtx.createGain();
+      oscillator.connect(gainNodes.hz).connect(audioCtx.destination);
+      oscillator.start();
+    }
+
+    function preloadMusic() {
+  fetch('mesono-theme.mp3')
+    .then(res => res.arrayBuffer())
+    .then(data => {
+      audioCtx.decodeAudioData(data, function(buffer) {
+        const source = audioCtx.createBufferSource();
+        source.buffer = buffer;
+        source.loop = true;
+        gainNodes.music = audioCtx.createGain();
+        source.connect(gainNodes.music).connect(audioCtx.destination);
+        source.start();
+        sources.music = source;
+      });
+    });
+}
+
+    // Audio preload handled via preloadMusic(). Upload removed.
+    };
+
+    document.getElementById('start').onclick = function() {
+      if (!audioCtx) {
+        initAudio();
+        preloadMusic();
+      }
+    };
+
+    document.getElementById('stop').onclick = function() {
+      if (audioCtx) {
+        Object.values(gainNodes).forEach(g => g.gain.setValueAtTime(0, audioCtx.currentTime));
+      }
+    };
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (let i = ripples.length - 1; i >= 0; i--) {
+        const r = ripples[i];
+        ctx.beginPath();
+        ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(255, 255, 255, ${r.alpha})`;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        r.radius += 2;
+        r.alpha -= 0.01;
+        if (r.alpha <= 0) ripples.splice(i, 1);
+      }
+
+      for (let i = 1; i <= 6; i++) {
+        ctx.beginPath();
+        ctx.arc(center.x, center.y, i * 60, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.stroke();
+      }
+
+      ctx.beginPath();
+      ctx.arc(orb.x, orb.y, orb.radius, 0, Math.PI * 2);
+      ctx.fillStyle = '#fff';
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = '#000';
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    function updateGains() {
+      for (const [key, point] of Object.entries(points)) {
+        const px = center.x + point.x;
+        const py = center.y + point.y;
+        const dist = Math.hypot(orb.x - px, orb.y - py);
+        const maxDist = 300;
+        const gain = Math.max(0, 1 - dist / maxDist);
+        if (gainNodes[key]) {
+          gainNodes[key].gain.setValueAtTime(gain, audioCtx.currentTime);
+        }
+      }
+    }
+
+    function animate() {
+      draw();
+      updateGains();
+      requestAnimationFrame(animate);
+    }
+    animate();
+
+    canvas.addEventListener('mousedown', e => {
+      const dx = e.clientX - orb.x;
+      const dy = e.clientY - orb.y;
+      if (Math.sqrt(dx * dx + dy * dy) < orb.radius) {
+        orb.dragging = true;
+      }
+    });
+
+    canvas.addEventListener('mouseup', () => orb.dragging = false);
+    canvas.addEventListener('mouseleave', () => orb.dragging = false);
+    canvas.addEventListener('mousemove', e => {
+      if (orb.dragging) {
+        orb.x = e.clientX;
+        orb.y = e.clientY;
+        ripples.push({ x: orb.x, y: orb.y, radius: 10, alpha: 0.5 });
+      }
+    });
+  </script>
+</body>
+</html>
