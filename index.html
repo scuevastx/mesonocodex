@@ -6,7 +6,8 @@
   <style>
     body {
       margin: 0;
-      background-color: #a59682;
+      background: url('https://github.com/scuevastx/mesonocodex/blob/main/mesono-backimage.png?raw=true') no-repeat center center fixed;
+      background-size: cover;
       overflow: hidden;
       font-family: sans-serif;
       color: white;
@@ -32,7 +33,7 @@
       z-index: 2;
     }
     #logoImage {
-      display: none;
+      display: block;
       position: absolute;
       top: 50%;
       left: 50%;
@@ -48,7 +49,7 @@
 <body>
   <canvas id="canvas"></canvas>
 
-  <img id="logoImage" src="mesono-logo.png" style="display: block;">
+  <img id="logoImage" src="mesono-logo.png">
   <div id="hz" class="label" style="top: 5%; left: 50%; transform: translateX(-50%)">hz</div>
   <div id="music" class="label" style="top: 50%; left: 5%; transform: translateY(-50%)">music</div>
   <div id="white-noise" class="label" style="top: 50%; right: 5%; transform: translateY(-50%)">white noise</div>
@@ -74,8 +75,6 @@
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
-    const logoImage = document.getElementById('logoImage');
-
     const points = {
       hz: { x: 0, y: -250, gain: 0 },
       music: { x: -250, y: 0, gain: 0 },
@@ -83,7 +82,7 @@
       "pink-noise": { x: 0, y: 250, gain: 0 }
     };
 
-    let audioCtx, gainNodes = {}, sources = {}, files = {}, ripples = [];
+    let audioCtx, gainNodes = {}, sources = {}, ripples = [];
 
     function initAudio() {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -172,12 +171,12 @@
     }
 
     function updateGains() {
+      const maxDist = 300;
       for (const [key, point] of Object.entries(points)) {
         const px = center.x + point.x;
         const py = center.y + point.y;
         const dist = Math.hypot(orb.x - px, orb.y - py);
-        const maxDist = 300;
-        const gain = Math.max(0, 1 - dist / maxDist);
+        const gain = Math.min(1, dist / maxDist); // loudest in center, quieter near point
         if (gainNodes[key]) {
           gainNodes[key].gain.setValueAtTime(gain, audioCtx.currentTime);
         }
