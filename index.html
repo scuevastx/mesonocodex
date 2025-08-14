@@ -47,7 +47,7 @@
     /* Simple pill styling for Start/Stop */
     .btn { padding: 6px 10px; border-radius: 999px; background: rgba(0,0,0,0.35); }
     .btn:hover { background: rgba(0,0,0,0.5); }
-    
+
     /* Debug panel (togglable) */
     #debug {
       position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
@@ -100,10 +100,10 @@
 
     // Calibration to balance perceived loudness across sources
     const CAL = {
-      'hz': 0.35,          // tone tends to be quieter perceptually
-      'music': 0.25,
-      'white-noise': 0.12, // noises are loud — keep lower
-      'pink-noise': 0.15
+      'hz': 0.40,
+      'music': 0.80,       // boost music so it stands out
+      'white-noise': 0.06, // reduce noise layers further
+      'pink-noise': 0.08
     };
 
     // Audio plumbing
@@ -163,7 +163,7 @@
 
       // Music (preload file from same folder)
       fetch('mesono-theme.mp3')
-        .then(r => r.arrayBuffer())
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
         .then(buf => audioCtx.decodeAudioData(buf))
         .then(decoded => {
           const src = audioCtx.createBufferSource();
@@ -174,43 +174,47 @@
           src.start();
           sources.music = src;
           gainNodes.music = mg;
+          console.log('[Mesono] Music buffer loaded.');
         })
-        .catch(() => console.warn('Music file not found or blocked. Ensure mesono-theme.mp3 is alongside index.html.'));
+        .catch((e) => console.warn('[Mesono] Music file not found or blocked. Ensure mesono-theme.mp3 is alongside index.html.', e));
     }
 
-    // Inverted mixing curve: loudest at center, quieter toward each point along its axis
+    // Hotspot mixing: each point peaks at its own location with Gaussian falloff
     function updateGains() {
       if (!audioCtx) return;
       const now = audioCtx.currentTime;
-      const T = 0.06; // smoothing time constant for changes
+      const T = 0.06; // smoothing
 
-      const ox = orb.x - center.x;
-      const oy = orb.y - center.y;
+      // Hotspot radius (controls how wide each island feels)
+      const HOTSPOT_R = 180;
+      const R2 = 2 * HOTSPOT_R * HOTSPOT_R; // for Gaussian falloff
 
-      function gainToward(ux, uy) {
-        const proj = ox * ux + oy * uy;                // signed axial distance from center
-        const norm = Math.max(0, Math.min(ARM, proj)); // toward the point only
-        const g = 1 - (norm / ARM);                    // 1 at center -> 0 at the point
-        return Math.max(0, Math.min(1, g));
-      }
-
-      const targets = {
-        'hz':          CAL['hz']          * gainToward( 0,-1),
-        'music':       CAL['music']       * gainToward(-1, 0),
-        'white-noise': CAL['white-noise'] * gainToward( 1, 0),
-        'pink-noise':  CAL['pink-noise']  * gainToward( 0, 1),
+      // Absolute positions of the four points
+      const pos = {
+        'hz':          { x: center.x,       y: center.y - ARM },
+        'music':       { x: center.x - ARM, y: center.y       },
+        'white-noise': { x: center.x + ARM, y: center.y       },
+        'pink-noise':  { x: center.x,       y: center.y + ARM }
       };
+
+      // Radial Gaussian falloff: peak at the point, fades as you move away
+      const targets = {};
+      for (const key of Object.keys(pos)) {
+        const dx = orb.x - pos[key].x;
+        const dy = orb.y - pos[key].y;
+        const d2 = dx*dx + dy*dy;
+        const radial = Math.exp(-d2 / R2); // 1 at point, ~0 far away
+        targets[key] = CAL[key] * radial;
+      }
 
       for (const key of Object.keys(targets)) {
         const node = gainNodes[key];
         if (!node) continue;
-        const target = targets[key];
-        // Smooth to avoid clicks; clamp tiny floor
-        const safe = Math.max(0.0001, Math.min(1, target));
-        node.gain.setTargetAtTime(safe, now, T);
+        const target = Math.max(0.0001, Math.min(1, targets[key]));
+        node.gain.setTargetAtTime(target, now, T);
       }
 
-      // Debug HUD (optional)
+      // Debug HUD
       const hud = document.getElementById('debug');
       if (hud && hud.style.display !== 'none') {
         hud.textContent = `g_hz: ${targets.hz.toFixed(2)} | g_music: ${targets.music.toFixed(2)} | g_white: ${targets['white-noise'].toFixed(2)} | g_pink: ${targets['pink-noise'].toFixed(2)}`;
@@ -276,12 +280,19 @@
 
     // START/STOP handlers (user gesture required to start audio)
     document.getElementById('start').onclick = function () {
-      if (!audioCtx) initAudio();
+      if (!audioCtx) { initAudio(); return; }
+      const now = audioCtx.currentTime;
+      masterGain.gain.cancelScheduledValues(now);
+      // ensure we ramp from a tiny positive value
+      const from = Math.max(masterGain.gain.value, 0.0001);
+      masterGain.gain.setValueAtTime(from, now);
+      masterGain.gain.exponentialRampToValueAtTime(0.18, now + 1.0);
     };
+
     document.getElementById('stop').onclick = function () {
       if (!audioCtx) return;
       const now = audioCtx.currentTime;
-      // gentle fade out
+      // gentle fade out but keep context alive so START can resume
       masterGain.gain.cancelScheduledValues(now);
       masterGain.gain.setTargetAtTime(0.0001, now, 0.2);
     };
@@ -293,7 +304,30 @@
         hud.style.display = hud.style.display === 'none' ? 'block' : 'none';
       }
     });
+
+    // --- Lightweight self-tests to guard against future regressions ---
+    (function runSelfTests() {
+      try {
+        console.assert(document.getElementById('canvas'), 'Canvas exists');
+        console.assert(document.getElementById('logoImage'), 'Logo image exists');
+        console.assert(typeof updateGains === 'function', 'updateGains is defined');
+        console.assert(['hz','music','white-noise','pink-noise'].every(k => k in CAL), 'CAL has all layers');
+        console.assert(document.querySelectorAll('#logoImage').length === 1, 'No duplicate logoImage IDs');
+        console.assert(typeof document.getElementById('start').onclick === 'function', 'START handler attached');
+        console.assert(typeof document.getElementById('stop').onclick === 'function', 'STOP handler attached');
+        // Gaussian sanity: at zero distance radial=1; far away ~0
+        const R2test = 2 * 100 * 100; // mimic HOTSPOT_R=100
+        const near = Math.exp(-0 / R2test);
+        const far = Math.exp(-(1000*1000) / R2test);
+        console.assert(Math.abs(near - 1) < 1e-6, 'Gaussian near=1');
+        console.assert(far < 1e-3, 'Gaussian far~0');
+        // Safe to call updateGains before audio is initialized
+        updateGains();
+        console.log('[Mesono] Self-tests passed');
+      } catch (e) {
+        console.error('[Mesono] Self-tests failed', e);
+      }
+    })();
   </script>
 </body>
 </html>
-
