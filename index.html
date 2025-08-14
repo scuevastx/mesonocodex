@@ -565,7 +565,7 @@
         
         ctx.beginPath();
         ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(255, 255, 255, ${r.alpha})`;
+        ctx.strokeStyle = `rgba(76, 175, 80, ${r.alpha})`;
         ctx.lineWidth = 2;
         ctx.stroke();
         
@@ -584,14 +584,30 @@
         ctx.stroke();
       }
 
-      // Orb with better shadow and glow effect
+      // Orb with green styling and glow effect
       ctx.save();
-      ctx.shadowBlur = 15;
-      ctx.shadowColor = 'rgba(255, 255, 255, 0.5)';
+      
+      // Outer glow/shadow
+      ctx.shadowBlur = 20;
+      ctx.shadowColor = orb.dragging ? '#4CAF50' : '#66BB6A';
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+      
+      // Create radial gradient for the orb
+      const gradient = ctx.createRadialGradient(orb.x, orb.y, 0, orb.x, orb.y, orb.radius);
+      if (orb.dragging) {
+        gradient.addColorStop(0, '#A5D6A7');    // Very light green center when dragging
+        gradient.addColorStop(0.6, '#66BB6A');  // Medium green
+        gradient.addColorStop(1, '#2E7D32');    // Dark green edge
+      } else {
+        gradient.addColorStop(0, '#81C784');    // Light green center
+        gradient.addColorStop(0.6, '#4CAF50');  // Main green
+        gradient.addColorStop(1, '#388E3C');    // Darker green edge
+      }
       
       ctx.beginPath();
       ctx.arc(orb.x, orb.y, orb.radius, 0, Math.PI * 2);
-      ctx.fillStyle = orb.dragging ? 'rgba(255, 255, 255, 0.9)' : '#fff';
+      ctx.fillStyle = gradient;
       ctx.fill();
       
       ctx.restore();
