@@ -51,12 +51,17 @@
     /* Direction labels & controls sit above canvas */
     .label {
       position: absolute;
-      font-size: clamp(0.9rem, 2vw, 1.2rem);
+      font-size: clamp(0.8rem, 2.5vw, 1rem);
       font-weight: 700;
       z-index: 3;
-      text-shadow: 0 2px 10px rgba(0,0,0,0.6);
+      text-shadow: 0 2px 10px rgba(0,0,0,0.8);
       user-select: none;
       pointer-events: none;
+      backdrop-filter: blur(5px);
+      background: rgba(0,0,0,0.2);
+      padding: 4px 8px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.1);
     }
 
     /* Central brand mark placed between canvas and labels */
@@ -76,15 +81,18 @@
 
     /* Simple pill styling for buttons */
     .btn { 
-      padding: clamp(6px, 1vw, 12px) clamp(10px, 2vw, 16px);
-      border-radius: 999px;
-      background: rgba(0,0,0,0.35);
+      padding: clamp(8px, 2vw, 12px) clamp(12px, 3vw, 16px);
+      border-radius: 20px;
+      background: rgba(0,0,0,0.5);
       backdrop-filter: blur(10px);
-      border: 1px solid rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.3);
       cursor: pointer;
       transition: all 0.2s ease;
       pointer-events: auto;
-      font-size: clamp(0.8rem, 1.5vw, 1rem);
+      font-size: clamp(0.7rem, 2vw, 0.9rem);
+      font-weight: 600;
+      min-width: 60px;
+      text-align: center;
     }
     .btn:hover { 
       background: rgba(0,0,0,0.5);
@@ -135,21 +143,24 @@
     /* Volume control */
     .volume-control {
       position: absolute;
-      top: 20px;
-      right: 20px;
+      top: 15px;
+      left: 50%;
+      transform: translateX(-50%);
       z-index: 4;
       display: flex;
       align-items: center;
-      gap: 10px;
-      background: rgba(0,0,0,0.35);
-      padding: 10px;
-      border-radius: 8px;
+      gap: 8px;
+      background: rgba(0,0,0,0.5);
+      padding: 6px 12px;
+      border-radius: 20px;
       backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.2);
+      font-size: clamp(0.7rem, 2vw, 0.8rem);
     }
 
     .volume-slider {
-      width: 100px;
-      height: 4px;
+      width: clamp(60px, 15vw, 80px);
+      height: 3px;
       background: rgba(255,255,255,0.3);
       border-radius: 2px;
       outline: none;
@@ -160,11 +171,35 @@
     @media (max-width: 768px) {
       .volume-control {
         top: 10px;
-        right: 10px;
-        padding: 8px;
+        padding: 4px 8px;
+        gap: 6px;
       }
       .volume-slider {
-        width: 80px;
+        width: clamp(50px, 12vw, 60px);
+      }
+      .label {
+        font-size: clamp(0.7rem, 3vw, 0.9rem);
+        padding: 2px 6px;
+      }
+      .btn {
+        font-size: clamp(0.6rem, 2.5vw, 0.8rem);
+        padding: 6px 10px;
+        min-width: 50px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .volume-control {
+        top: 8px;
+        padding: 3px 6px;
+      }
+      .label {
+        padding: 1px 4px;
+        font-size: clamp(0.6rem, 3.5vw, 0.8rem);
+      }
+      .btn {
+        padding: 5px 8px;
+        min-width: 45px;
       }
     }
   </style>
@@ -180,18 +215,19 @@
 
   <!-- Volume control -->
   <div class="volume-control">
-    <span style="font-size: 0.8rem;">Vol</span>
+    <span>Vol</span>
     <input type="range" id="volumeSlider" class="volume-slider" min="0" max="100" value="18" />
   </div>
 
-  <!-- Labels: N/E/S/W & controls -->
-  <div class="label" style="top: 5%; left: 50%; transform: translateX(-50%)">hz</div>
-  <div class="label" style="top: 50%; left: 4%; transform: translateY(-50%)">music</div>
-  <div class="label" style="top: 50%; right: 4%; transform: translateY(-50%)">white noise</div>
-  <div class="label" style="bottom: 8%; left: 50%; transform: translateX(-50%)">pink noise</div>
+  <!-- Labels: N/E/S/W positioned closer to center with mobile-optimized distances -->
+  <div class="label" style="top: 20%; left: 50%; transform: translateX(-50%)">hz</div>
+  <div class="label" style="top: 50%; left: 15%; transform: translateY(-50%)">music</div>
+  <div class="label" style="top: 50%; right: 15%; transform: translateY(-50%)">white noise</div>
+  <div class="label" style="bottom: 20%; left: 50%; transform: translateX(-50%)">pink noise</div>
 
-  <div id="start" class="label btn" style="bottom: 6%; left: 4%">START</div>
-  <div id="stop" class="label btn" style="bottom: 6%; right: 4%">STOP</div>
+  <!-- Start/Stop buttons positioned closer to center -->
+  <div id="start" class="label btn" style="bottom: 12%; left: 50%; transform: translateX(-120%)">START</div>
+  <div id="stop" class="label btn" style="bottom: 12%; left: 50%; transform: translateX(20%)">STOP</div>
 
   <!-- Debug readout (press D to toggle) -->
   <div id="debug">g_hz: 0.00 | g_music: 0.00 | g_white: 0.00 | g_pink: 0.00</div>
@@ -218,7 +254,8 @@
       dragging: false,
       targetX: 0,
       targetY: 0,
-      smoothing: 0.1 // For smooth movement
+      smoothing: 0.1, // For smooth movement
+      resetToCenter: false // Flag for center reset animation
     };
 
     // Error handling
@@ -262,7 +299,8 @@
       center.x = rect.width / 2;
       center.y = rect.height / 2;
       
-      if (!orb.dragging) {
+      // Only reset orb position on initial load, not on resize
+      if (!orb.dragging && (orb.x === 0 && orb.y === 0)) {
         orb.x = center.x;
         orb.y = center.y;
         orb.targetX = center.x;
@@ -499,10 +537,17 @@
     }
 
     function updateOrbPosition() {
-      if (!orb.dragging) {
-        // Smooth interpolation towards target
+      // Only smooth movement when explicitly resetting to center (R key)
+      if (!orb.dragging && orb.resetToCenter) {
         orb.x += (orb.targetX - orb.x) * orb.smoothing;
         orb.y += (orb.targetY - orb.y) * orb.smoothing;
+        
+        // Stop smoothing when close enough to target
+        if (Math.hypot(orb.x - orb.targetX, orb.y - orb.targetY) < 1) {
+          orb.x = orb.targetX;
+          orb.y = orb.targetY;
+          orb.resetToCenter = false;
+        }
       }
     }
 
@@ -683,10 +728,7 @@
         case 'r': // Reset orb to center
           orb.targetX = center.x;
           orb.targetY = center.y;
-          if (!orb.dragging) {
-            orb.x = center.x;
-            orb.y = center.y;
-          }
+          orb.resetToCenter = true; // Enable smooth animation to center
           break;
       }
     });
@@ -720,4 +762,3 @@
   </script>
 </body>
 </html>
-
