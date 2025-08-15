@@ -189,6 +189,22 @@
       resetToCenter: false
     };
 
+    // Audio variables
+    let audioCtx;
+    const gainNodes = { hz: null, music: null, 'white-noise': null, 'pink-noise': null };
+    let masterGain = null;
+    const sources = {};
+    const ripples = [];
+    const sandParticles = [];
+
+    // Audio calibration
+    const CAL = {
+      'hz': 0.40,
+      'music': 1.04,
+      'white-noise': 0.048,
+      'pink-noise': 0.0544
+    };
+
     function showError(message, duration = 5000) {
       errorMessage.textContent = message;
       errorMessage.style.display = 'block';
@@ -215,6 +231,25 @@
       }
     }
 
+    function initSandParticles() {
+      sandParticles.length = 0; // Clear existing particles
+      const numParticles = 200;
+      for (let i = 0; i < numParticles; i++) {
+        sandParticles.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          baseX: Math.random() * canvas.width,
+          baseY: Math.random() * canvas.height,
+          size: Math.random() * 3 + 1,
+          opacity: Math.random() * 0.4 + 0.1,
+          angle: Math.random() * Math.PI * 2,
+          speed: Math.random() * 0.5 + 0.2,
+          displacement: 0,
+          maxDisplacement: Math.random() * 30 + 10
+        });
+      }
+    }
+
     function resizeCanvas() {
       const dpr = window.devicePixelRatio || 1;
       const rect = canvas.getBoundingClientRect();
@@ -228,6 +263,9 @@
       
       center.x = rect.width / 2;
       center.y = rect.height / 2;
+      
+      // Reinitialize sand particles on resize
+      initSandParticles();
       
       if (!orb.dragging && (orb.x === 0 && orb.y === 0)) {
         orb.x = center.x;
@@ -243,26 +281,66 @@
       resizeTimeout = setTimeout(resizeCanvas, 100);
     }
 
-    resizeCanvas();
-    window.addEventListener('resize', handleResize);
-
     function getARM() {
       return Math.min(250, Math.min(canvas.width, canvas.height) * 0.25);
     }
 
-    const CAL = {
-      'hz': 0.40,
-      'music': 1.04,
-      'white-noise': 0.048,
-      'pink-noise': 0.0544
-    };
+    function updateSandParticles() {
+      const orbInfluenceRadius = 80;
+      const pushStrength = 25;
+      
+      sandParticles.forEach(particle => {
+        // Calculate distance from orb
+        const dx = particle.baseX - orb.x;
+        const dy = particle.baseY - orb.y;
+        const distance = Math.hypot(dx, dy);
+        
+        if (distance < orbInfluenceRadius) {
+          // Push particle away from orb
+          const force = (1 - distance / orbInfluenceRadius) * pushStrength;
+          const angle = Math.atan2(dy, dx);
+          
+          particle.displacement = Math.min(particle.displacement + force * 0.1, particle.maxDisplacement);
+          particle.x = particle.baseX + Math.cos(angle) * particle.displacement;
+          particle.y = particle.baseY + Math.sin(angle) * particle.displacement;
+        } else {
+          // Gradually return to base position
+          particle.displacement *= 0.95;
+          const returnAngle = Math.atan2(particle.baseY - particle.y, particle.baseX - particle.x);
+          particle.x += Math.cos(returnAngle) * particle.displacement * 0.05;
+          particle.y += Math.sin(returnAngle) * particle.displacement * 0.05;
+        }
+        
+        // Add subtle floating movement
+        particle.angle += particle.speed * 0.02;
+        particle.x += Math.cos(particle.angle) * 0.2;
+        particle.y += Math.sin(particle.angle) * 0.1;
+      });
+    }
 
-    let audioCtx;
-    const gainNodes = { hz: null, music: null, 'white-noise': null, 'pink-noise': null };
-    let masterGain = null;
-    const sources = {};
-    const ripples = [];
+    function drawSandParticles() {
+      sandParticles.forEach(particle => {
+        ctx.save();
+        ctx.globalAlpha = particle.opacity;
+        ctx.fillStyle = '#D4B896';
+        ctx.beginPath();
+        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Add subtle glow for displaced particles
+        if (particle.displacement > 5) {
+          ctx.globalAlpha = particle.opacity * 0.3;
+          ctx.fillStyle = '#E8D4B0';
+          ctx.beginPath();
+          ctx.arc(particle.x, particle.y, particle.size * 1.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        
+        ctx.restore();
+      });
+    }
 
+    // Volume control
     const volumeSlider = document.getElementById('volumeSlider');
     volumeSlider.addEventListener('input', (e) => {
       if (masterGain) {
@@ -433,6 +511,10 @@
       const rect = canvas.getBoundingClientRect();
       ctx.clearRect(0, 0, rect.width, rect.height);
 
+      // Draw sand particles first (background layer)
+      drawSandParticles();
+
+      // Draw ripples
       for (let i = ripples.length - 1; i >= 0; i--) {
         const r = ripples[i];
         if (r.alpha <= 0) {
@@ -450,6 +532,7 @@
         r.alpha -= 0.01;
       }
 
+      // Draw concentric guides
       const ARM = getARM();
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
       ctx.lineWidth = 1;
@@ -460,6 +543,7 @@
         ctx.stroke();
       }
 
+      // Draw orb (foreground)
       ctx.save();
       
       ctx.shadowBlur = 20;
@@ -488,11 +572,11 @@
 
     function animate() {
       updateOrbPosition();
+      updateSandParticles();
       draw();
       updateGains();
       requestAnimationFrame(animate);
     }
-    animate();
 
     function getEventPos(e) {
       const rect = canvas.getBoundingClientRect();
@@ -510,6 +594,7 @@
       return Math.hypot(dx, dy) < orb.radius * 1.2;
     }
 
+    // Mouse events
     canvas.addEventListener('mousedown', (e) => {
       const pos = getEventPos(e);
       if (isInOrb(pos)) {
@@ -535,6 +620,7 @@
       }
     });
 
+    // Touch events
     canvas.addEventListener('touchstart', (e) => {
       const pos = getEventPos(e);
       if (isInOrb(pos)) {
@@ -558,6 +644,7 @@
       }
     }, { passive: false });
 
+    // Button handlers
     document.getElementById('start').onclick = async function () {
       try {
         if (!state.audioInitialized) {
@@ -593,6 +680,7 @@
       }
     };
 
+    // Keyboard shortcuts
     window.addEventListener('keydown', (e) => {
       const key = e.key.toLowerCase();
       
@@ -617,14 +705,15 @@
       }
     });
 
+    // Initialize everything
+    resizeCanvas();
+    window.addEventListener('resize', handleResize);
     updateButtonStates();
+    animate();
 
     console.log('[Mesono] Sound Mixer initialized successfully');
   </script>
 </body>
 </html>
-
-    console.log('[Mesono] Sound Mixer initialized successfully');
-  </script>
 </body>
 </html>
